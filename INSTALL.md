@@ -80,7 +80,14 @@ Tell your agent:
 /atomic-design-shadcn --install
 ```
 
-The agent finds the correct folders. Then the agent installs the three parts.
+The agent runs three commands, and nothing else:
+
+1. `--gate` — it prints `PASS` or `FAIL`. On `FAIL`, the agent stops.
+2. The installer — it installs the three parts.
+3. `--status` — it shows the result.
+
+The gate looks in your folder. It also looks in the folders below it. So the gate finds an app
+in `my-project/web`, for example.
 
 ### The manual way
 
@@ -178,7 +185,8 @@ Then do two more checks:
 
 | Option | Function |
 |---|---|
-| `--status` | Show the state of each part. Change nothing. |
+| `--gate` | Print `PASS` or `FAIL` only. Find the Next.js app. Exit code: 0 = PASS, 1 = FAIL. |
+| `--status` | Show the state of each part. Change nothing. Exit code: 0 = ready, 1 = not a Next.js app, 2 = parts missing. |
 | `--dry-run` | Show the changes. Write nothing. |
 | `--project-root <path>` | Set the app to change. |
 | `--global` | Write user settings. Do not use an app. |

@@ -14,7 +14,7 @@
  * Works identically on Windows, macOS and Linux. No dependencies, Node 18+.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -49,7 +49,10 @@ This installer sets up three parts: the shadcn MCP server, the settings, and
 the shadcn skills. You must run it in a Next.js app.
 
 Options
+      --gate            Print PASS or FAIL only. Find the Next.js app
+                        Exit code: 0 = PASS, 1 = FAIL
       --status          Show the state of each part. Change nothing
+                        Exit code: 0 = ready, 1 = not a Next.js app, 2 = parts missing
   -n, --dry-run         Show the changes. Write nothing
       --project-root    Set the app folder to change
   -g, --global          Write user settings. Do not use an app
@@ -98,6 +101,7 @@ const opts = {
   skipSkills: argv.includes('--skip-skills'),
   noInit: argv.includes('--no-init'),
   status: argv.includes('--status'),
+  gate: argv.includes('--gate'),
   agents: takeAll(['-a', '--agent']),
   clients: takeAll(['-c', '--client']),
   projectRoot: takeOne(['--project-root']),
@@ -208,7 +212,7 @@ if (opts.projectRoot) {
 const ranFromSkillDir = isInsideSkillsDir(projectRoot);
 
 // Global scope configures ~/.claude only, so a bogus project root is harmless there.
-if (ranFromSkillDir && !opts.global && !opts.status) {
+if (ranFromSkillDir && !opts.global && !opts.status && !opts.gate) {
   fail(
     `this installer was run from inside the skill folder, so there is no project to configure.\n\n` +
     `  resolved project root: ${projectRoot}\n\n` +
@@ -225,7 +229,7 @@ if (ranFromSkillDir && !opts.global && !opts.status) {
 
 const hasComponentsJson = existsSync(join(projectRoot, 'components.json'));
 
-if (!opts.status) {
+if (!opts.status && !opts.gate) {
 console.log(`atomic-design-shadcn installer`);
 console.log(`  node          ${process.versions.node}`);
 console.log(`  platform      ${process.platform}`);
@@ -235,6 +239,59 @@ console.log(`  scope         ${opts.global ? 'global (user)' : 'project'}`);
 console.log(`  agents        ${opts.agents.join(', ')}`);
 console.log(`  mcp clients   ${opts.clients.join(', ')}`);
 if (opts.dryRun) console.log(`  MODE          dry run — nothing will be written`);
+}
+
+// --- gate --------------------------------------------------------------------
+
+const SCAN_SKIP = new Set([
+  'node_modules', '.git', '.next', 'dist', 'build', 'out', '.turbo',
+  '.claude', '.agents', '.cursor', '.vscode', '.codex',
+]);
+
+/** Find every Next.js app in `root`, and below it, down to `maxDepth` folders. */
+function findNextApps(root, maxDepth = 2) {
+  const found = [];
+  const walk = (dir, depth) => {
+    if (detectNextJs(dir).isNext) {
+      found.push(dir);
+      return; // do not look inside an app for another app
+    }
+    if (depth >= maxDepth) return;
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (!e.isDirectory() || SCAN_SKIP.has(e.name) || e.name.startsWith('.')) continue;
+      walk(join(dir, e.name), depth + 1);
+    }
+  };
+  walk(resolve(root), 0);
+  return found;
+}
+
+if (opts.gate) {
+  const start = opts.projectRoot ? resolve(opts.projectRoot) : process.cwd();
+  const apps = findNextApps(start);
+
+  if (apps.length === 1) {
+    console.log('PASS');
+    console.log(`app: ${apps[0]}`);
+    process.exit(0);
+  }
+
+  console.log('FAIL');
+  if (apps.length === 0) {
+    console.log(`No Next.js app in: ${start}`);
+    console.log('Ask the user for the path to a Next.js app. Run no other command.');
+  } else {
+    console.log(`More than one Next.js app in: ${start}`);
+    for (const a of apps) console.log(`  ${a}`);
+    console.log('Ask the user which app to use. Run no other command.');
+  }
+  process.exit(1);
 }
 
 // --- status -----------------------------------------------------------------
@@ -312,11 +369,18 @@ function printStatus(root, st) {
 }
 
 if (opts.status) {
+  const st = checkStatus(projectRoot);
   console.log(`
 atomic-design-shadcn`);
-  printStatus(projectRoot, checkStatus(projectRoot));
+  printStatus(projectRoot, st);
   console.log('');
-  process.exit(0);
+  // Exit code, so a caller can branch without reading the text:
+  //   1 = not a Next.js app, stop
+  //   2 = Next.js app, parts missing, run the installer
+  //   0 = everything installed
+  if (!st.next.isNext) process.exit(1);
+  const ready = st.componentsJson && st.mcp && st.settings && st.skills;
+  process.exit(ready ? 0 : 2);
 }
 
 // --- step 0: make sure the target is a real project ------------------------

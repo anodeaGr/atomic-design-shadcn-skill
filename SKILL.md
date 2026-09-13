@@ -10,86 +10,73 @@ One-way layers, `components/ui/` (layer 0) as the substrate. This holds at any c
 
 ## `--install` mode
 
-Use this mode when the user message has `--install`. Also use it when the user asks to install
-or to set up this skill.
+Trigger: the user message has `--install`. Also use this mode when the user asks to install or
+to set up this skill.
 
-Do only the install. Do not write UI code in the same turn.
+**Run the three commands below. Run nothing else.**
 
-`--install` is an input word, not a shell command. Read it from the message. Do not run it.
+Forbidden in this mode. Do not do any of these:
 
-Do these four steps in this sequence.
+- Do not read `INSTALL.md`, `README.md` or `install.mjs`.
+- Do not run `ls`, `dir`, `find`, `cat`, `head`, `sed` or `type`.
+- Do not look in `.claude`, `.agents` or `skills-lock.json`.
+- Do not run `--dry-run`.
+- Do not write UI code in this turn.
 
-### Step 1 — Find this skill folder
+`<SKILL_DIR>` is the folder that holds this file. You know this path. Do not search for it.
+Put quotation marks around each path. Never write `~` in a command: PowerShell and cmd do not
+change `~` to the home folder.
 
-You read this file now. The folder that holds this file is `<SKILL_DIR>`. Use that path. Do not
-search for it. Do not guess it.
+If the user gives an app folder, add `--project-root "<that folder>"` to command 1 as well.
 
-> **Warning**
-> Do not write `~` in a command. PowerShell and cmd do not change `~` to the home folder.
-> The command fails. Always write the full path.
+### Command 1 — the gate. Always first.
 
-### Step 2 — Find the Next.js app
+```bash
+node "<SKILL_DIR>/scripts/install.mjs" --gate
+```
 
-This skill is for Next.js only.
+This command prints `PASS` or `FAIL` on the first line. It changes nothing.
 
-A folder is a Next.js app if one of these is true:
-
-- the folder has a `next.config.js`, `next.config.mjs`, `next.config.ts` or `next.config.cjs` file
-- `package.json` has `next` in `dependencies` or in `devDependencies`
-
-Find the app folder with this table:
-
-| Condition | Action |
+| First line | Your action |
 |---|---|
-| The user gives an app folder | Use that folder. |
-| The current folder is in a Next.js app | Use that app folder. |
-| The user asks for user settings only | Use `--global`. Do not use an app folder. |
-| There is no Next.js app | Stop. Tell the user. Ask for the path to the app. |
+| `FAIL` | **STOP.** Show the output. Run no other command. |
+| `PASS` | Take the `app:` path. Go to command 2. |
 
-Do not select a folder that is not a Next.js app. The MCP server cannot start in such a folder.
+`PASS` gives the app folder on the second line, like this:
 
-### Step 3 — Run the installer
-
-Put quotation marks around each path.
-
-This command works from any folder:
-
-```bash
-node "<SKILL_DIR>/scripts/install.mjs" --project-root "<app-folder>"
+```
+PASS
+app: C:\code\my-app
 ```
 
-For user settings only, with no app:
+Use that path as `<APP>` in command 2 and command 3.
+
+**On `FAIL`, stop immediately.** Do not look for the app yourself. Do not list folders. Do not
+read files. The gate has looked already. Show the output and wait for the user.
+
+### Command 2 — install
 
 ```bash
-node "<SKILL_DIR>/scripts/install.mjs" --global
+node "<SKILL_DIR>/scripts/install.mjs" --project-root "<APP>"
 ```
 
-To show the changes first, add `--dry-run`. To show the state only, use `--status`.
+This command can take one minute. It downloads the shadcn skills.
 
-Other options: `-a codex` adds an agent. `--client vscode` adds a client. `--copy` stops
-symlinks on Windows. `--no-init` stops the `components.json` step.
+If it stops with an error, show the error to the user. The error text holds the correct
+command. Do not try a different command. Do not explore the folders.
 
-The installer is safe to run again. It adds the missing parts only.
-
-The installer stops if one of these is true:
-
-- you run it in the skill folder
-- the folder is not a Next.js app
-
-Both mean that the folder is wrong. Go back to step 2. Do not try a different command.
-
-### Step 4 — Show the result
-
-Run the status command:
+### Command 3 — report
 
 ```bash
-node "<SKILL_DIR>/scripts/install.mjs" --status --project-root "<app-folder>"
+node "<SKILL_DIR>/scripts/install.mjs" --status --project-root "<APP>"
 ```
 
-Show the result to the user. Then tell the user to restart the client.
+Show the output. Then say this to the user:
 
-The client reads MCP servers one time, at start. So `/mcp` shows `shadcn` only after a restart.
-This is correct. It is not an error.
+> Restart your client. Then type `/mcp`. You must see `shadcn` in the list.
+
+The client reads MCP servers one time, at start. So `/mcp` is empty before a restart. This is
+correct. It is not an error.
 
 ---
 

@@ -212,19 +212,6 @@ For a manual install, for other tools, or if there is a problem, see **[INSTALL.
 
 ---
 
-## Repository contents
-
-| File | |
-|---|---|
-| `SKILL.md` | the skill itself — layer model, workflow, the eight rules |
-| `REFERENCE.md` | layer contracts, decision tree, shadcn↔atomic map, RSC boundary, forms, migration |
-| `EXAMPLES.md` | a full worked Next.js dashboard, every layer |
-| `INSTALL.md` | the install process, verification and troubleshooting |
-| `scripts/validate-atomic.mjs` | the validator |
-| `scripts/install.mjs` | the dependency installer |
-
----
-
 ## Author
 
 **Kostas Ordoumpozanis** — Founder, [Anodea](https://anodea.gr)

@@ -1,0 +1,14 @@
+# Written by the `skills` CLI if it is ever run from this folder
+skills-lock.json
+.claude/
+.agents/
+
+# Local MCP / editor config that belongs to a consuming project, not this repo
+.mcp.json
+.cursor/
+.vscode/
+
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

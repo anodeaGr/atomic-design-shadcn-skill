@@ -218,6 +218,8 @@ For a manual install, for other tools, or if there is a problem, see **[INSTALL.
 
 ## License
 
-**Personal use only.** Free for individuals to use, modify and learn from on personal,
-non-commercial projects. Commercial use, redistribution and resale are not permitted without
-written permission. See [LICENSE](LICENSE) for the full terms.
+**MIT.** Free to use, modify, distribute and use commercially. See [LICENSE](LICENSE) for
+the full terms.
+
+Note: this skill modifies local configuration files and installs third-party dependencies.
+Review it before use.

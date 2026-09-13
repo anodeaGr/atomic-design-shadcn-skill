@@ -9,6 +9,15 @@ Works with Claude Code, Claude Cowork, Codex and Cursor.
 
 ---
 
+## Status
+
+**Version 1.** This is the first working release, and it is an ongoing piece of work.
+The layer model, the eight rules and the validator all do their job today, and they will
+keep being refined — improvements, fixes and new rules land as real projects surface the
+need for them. Expect changes between versions rather than a frozen spec.
+
+---
+
 ## The problem
 
 Ask any coding agent for "a dashboard page" and you reliably get the same thing:

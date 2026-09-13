@@ -140,51 +140,66 @@ A real rule id is required. `all` is refused. Every use must be justified in cha
 
 ## Install
 
-Two steps.
+### Before you start
 
-### 1. Install the skill
+You must have a Next.js app. The install stops if the folder is not a Next.js app.
 
-```bash
-npx skills add anodeaGr/atomic-design-shadcn
-```
-
-On Windows, add `--copy` if symlink creation is blocked.
-
-### 2. Let the agent finish the setup
-
-```
-/atomic-design-shadcn --install
-```
-
-That is the whole install. The agent works out where the skill landed and which scope you are
-in, then sets up all three dependencies and reports the result:
-
-| # | Dependency | Why it is needed |
-|---|---|---|
-| 1 | **shadcn MCP server** | the registry-search workflow calls `mcp__shadcn__*` |
-| 2 | **MCP server allow-listed in settings** | otherwise every lookup raises a permission prompt |
-| 3 | **shadcn/ui skills** | the component knowledge these architecture rules sit on |
-
-Works at any scope — project, user or global — and is safe to re-run: it merges into existing
-config instead of overwriting, so running it again repairs a partial install.
-
-Afterwards, **restart your client** — MCP servers are only read at startup.
-
-### Requirements
-
-- A Next.js app. The install stops if the folder is not a Next.js app.
-- Node.js 18 or later.
-
-No app yet? Make one first:
+If you have no app, make one first:
 
 ```bash
 npx create-next-app@latest my-app
 ```
 
-You do not need `components.json`. The installer creates it if it is missing.
+You must also have Node.js 18 or later. You do not need `components.json`. The installer
+makes that file for you.
 
-Doing it by hand instead, or something went wrong? Full process, per-OS paths, verification
-checklist and troubleshooting: **[INSTALL.md](INSTALL.md)**.
+### Step 1 - install the skill
+
+Go to your Next.js app. Then type this command:
+
+```bash
+npx skills add anodeaGr/atomic-design-shadcn
+```
+
+On Windows, add `--copy` if you see a symlink error.
+
+### Step 2 - install the parts
+
+Tell your agent:
+
+```
+/atomic-design-shadcn --install
+```
+
+The agent installs three parts:
+
+| Part | Function |
+|---|---|
+| The shadcn MCP server | It finds shadcn components for the agent. |
+| The settings | They let the agent use the server. No questions occur. |
+| The shadcn skills | They tell the agent how to use shadcn. |
+
+### Step 3 - restart your client
+
+The client reads MCP servers one time, at start. Close your client. Then start it again.
+
+### Step 4 - check the install
+
+```bash
+node <path-to-skill>/scripts/install.mjs --status
+```
+
+The command shows the state of each part. It changes nothing:
+
+```
+  Your setup: Next.js app yes · components.json yes · MCP server yes · settings yes · shadcn skills yes
+  Ready - all parts are installed.
+  Next: restart your client. Then type /mcp to see "shadcn".
+```
+
+The installer is safe to run again. It adds the missing parts only.
+
+For a manual install, for other tools, or if there is a problem, see **[INSTALL.md](INSTALL.md)**.
 
 ---
 

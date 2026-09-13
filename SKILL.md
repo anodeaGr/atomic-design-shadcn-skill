@@ -10,88 +10,92 @@ One-way layers, `components/ui/` (layer 0) as the substrate. This holds at any c
 
 ## `--install` mode
 
-Trigger: the user's message contains `--install`, or asks to install or set up this skill or
-its dependencies. Do **only** this, then stop — no UI code in the same turn.
+Use this mode when the user message has `--install`. Also use it when the user asks to install
+or to set up this skill.
 
-`--install` is an **agent input convention**, not a shell command. Read it from the message;
-never execute the literal text.
+Do only the install. Do not write UI code in the same turn.
 
-Follow these four steps exactly.
+`--install` is an input word, not a shell command. Read it from the message. Do not run it.
 
-### 1. Find this skill's directory
+Do these four steps in this sequence.
 
-You are reading `SKILL.md`. `<SKILL_DIR>` is the absolute path of the folder containing it.
-You already know it — use it verbatim. Do not guess and do not search for it.
+### Step 1 — Find this skill folder
 
-**Never emit a bare `~` in a command.** PowerShell and cmd do not expand it, and the command
-fails with `Cannot find module 'C:\<cwd>\~\.claude\...'`. Always pass an absolute path.
+You read this file now. The folder that holds this file is `<SKILL_DIR>`. Use that path. Do not
+search for it. Do not guess it.
 
-### 2. Find the project to configure, and pick the scope
+> **Warning**
+> Do not write `~` in a command. PowerShell and cmd do not change `~` to the home folder.
+> The command fails. Always write the full path.
 
-The installer configures the directory it is **run from**, not the one it lives in. Work out
-the target in this order:
+### Step 2 — Find the Next.js app
 
-**This skill needs a Next.js app.** A folder is a Next.js app if it has a `next.config.*` file,
-or `next` in `dependencies` or `devDependencies`. Check this first. If the folder is not a
-Next.js app, stop. Tell the user, and ask for the path to their Next.js app.
+This skill is for Next.js only.
 
-| Situation | What to do |
+A folder is a Next.js app if one of these is true:
+
+- the folder has a `next.config.js`, `next.config.mjs`, `next.config.ts` or `next.config.cjs` file
+- `package.json` has `next` in `dependencies` or in `devDependencies`
+
+Find the app folder with this table:
+
+| Condition | Action |
 |---|---|
-| The user named a Next.js app, or works in one | use that app folder |
-| The cwd is inside a Next.js app | use that app folder |
-| The user asked for user-wide setup | use `--global`, with no app |
-| There is no Next.js app | stop. Ask the user for the path to their app |
+| The user gives an app folder | Use that folder. |
+| The current folder is in a Next.js app | Use that app folder. |
+| The user asks for user settings only | Use `--global`. Do not use an app folder. |
+| There is no Next.js app | Stop. Tell the user. Ask for the path to the app. |
 
-Scope is independent of where the skill itself was installed. A globally-installed skill still
-configures a specific project; `--global` only means "write user-level settings instead".
+Do not select a folder that is not a Next.js app. The MCP server cannot start in such a folder.
 
-### 3. Run the installer
+### Step 3 — Run the installer
 
-Always quote both paths. Preferred form, which works from anywhere:
+Put quotation marks around each path.
 
-```bash
-node "<SKILL_DIR>/scripts/install.mjs" --project-root "<project-root>"
-```
-
-Equivalent, if you are already in the project:
+This command works from any folder:
 
 ```bash
-node "<SKILL_DIR>/scripts/install.mjs"
+node "<SKILL_DIR>/scripts/install.mjs" --project-root "<app-folder>"
 ```
 
-User-wide settings, no project:
+For user settings only, with no app:
 
 ```bash
 node "<SKILL_DIR>/scripts/install.mjs" --global
 ```
 
-Add `--dry-run` first if the user wants a preview. Other flags: `-a codex -a cursor` (more
-agents), `--client vscode` (more MCP clients), `--copy` (Windows, when symlinks are blocked),
-`--no-init` (do not create `components.json`).
+To show the changes first, add `--dry-run`. To show the state only, use `--status`.
 
-The installer is idempotent and merges into existing config, so re-running is always safe.
+Other options: `-a codex` adds an agent. `--client vscode` adds a client. `--copy` stops
+symlinks on Windows. `--no-init` stops the `components.json` step.
 
-The installer stops, and shows the correct paths, if:
+The installer is safe to run again. It adds the missing parts only.
 
-- you run it from inside the skill folder, or
-- the folder is not a Next.js app.
+The installer stops if one of these is true:
 
-Both mean the target folder is wrong. Go back to step 2. Do not try to force past it.
+- you run it in the skill folder
+- the folder is not a Next.js app
 
-If `components.json` is missing it runs `npx shadcn@latest init -d` for you. That is required:
-the shadcn MCP server starts and immediately exits without one.
+Both mean that the folder is wrong. Go back to step 2. Do not try a different command.
 
-### 4. Verify and report
+### Step 4 — Show the result
 
-Walk the five checks in [INSTALL.md](INSTALL.md) §5 and report each as pass or fail. Then tell
-the user to **restart their client** — MCP servers are only read at startup, so checks 2 and 3
-cannot pass in the current session. That is expected, not a failure.
+Run the status command:
+
+```bash
+node "<SKILL_DIR>/scripts/install.mjs" --status --project-root "<app-folder>"
+```
+
+Show the result to the user. Then tell the user to restart the client.
+
+The client reads MCP servers one time, at start. So `/mcp` shows `shadcn` only after a restart.
+This is correct. It is not an error.
 
 ---
 
-The three dependencies this resolves — the shadcn MCP server, its settings allow-list, and the
-shadcn/ui skills — are all required. Workflow step 2 below cannot run without them. If any
-`mcp__shadcn__*` call fails later, stop and run `--install` before continuing.
+This skill needs three parts: the shadcn MCP server, the settings, and the shadcn skills.
+Workflow step 2 below does not work without them. If a `mcp__shadcn__*` call fails, stop. Run
+`--install` first.
 
 ## The layer model
 

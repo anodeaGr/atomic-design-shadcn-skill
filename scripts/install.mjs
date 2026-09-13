@@ -45,28 +45,31 @@ atomic-design-shadcn installer
 
   node scripts/install.mjs [options]
 
+This installer sets up three parts: the shadcn MCP server, the settings, and
+the shadcn skills. You must run it in a Next.js app.
+
 Options
-  -g, --global          Install to the user directory (~/.claude) instead of the project
-  -a, --agent <name>    Target agent for the skills CLI; repeatable. Default: claude-code
-                        (claude-code | codex | cursor | ...)
-  -c, --client <name>   Client to register the MCP server for; repeatable.
-                        Default: claude  (claude | cursor | vscode | codex)
-      --copy            Copy skill files instead of symlinking (use on Windows if
-                        symlink creation is blocked)
-      --project-root    Project root to configure. Default: nearest ancestor with
-                        components.json, else the current directory
-      --no-init         Do not run \`shadcn init\` when components.json is missing
-      --skip-mcp        Skip step 1
-      --skip-settings   Skip step 2
-      --skip-skills     Skip step 3
-  -n, --dry-run         Print what would change; write nothing
+      --status          Show the state of each part. Change nothing
+  -n, --dry-run         Show the changes. Write nothing
+      --project-root    Set the app folder to change
+  -g, --global          Write user settings. Do not use an app
+  -a, --agent <name>    Add an agent, for example: -a codex
+                        Use this option more than one time for more agents
+  -c, --client <name>   Add a client: claude, cursor, vscode or codex
+      --copy            Copy the files. Do not use symlinks
+      --no-init         Do not make components.json
+      --skip-mcp        Do not do step 1
+      --skip-settings   Do not do step 2
+      --skip-skills     Do not do step 3
   -h, --help            Show this message
 
 Examples
-  node scripts/install.mjs
-  node scripts/install.mjs -g -a claude-code -a codex
-  node scripts/install.mjs --client claude --client vscode --copy
+  node scripts/install.mjs --status
+  node scripts/install.mjs --project-root /path/to/my-app
+  node scripts/install.mjs -a claude-code -a codex
   node scripts/install.mjs --dry-run
+
+More help: INSTALL.md
 `);
   process.exit(0);
 }
@@ -94,6 +97,7 @@ const opts = {
   skipSettings: argv.includes('--skip-settings'),
   skipSkills: argv.includes('--skip-skills'),
   noInit: argv.includes('--no-init'),
+  status: argv.includes('--status'),
   agents: takeAll(['-a', '--agent']),
   clients: takeAll(['-c', '--client']),
   projectRoot: takeOne(['--project-root']),
@@ -204,7 +208,7 @@ if (opts.projectRoot) {
 const ranFromSkillDir = isInsideSkillsDir(projectRoot);
 
 // Global scope configures ~/.claude only, so a bogus project root is harmless there.
-if (ranFromSkillDir && !opts.global) {
+if (ranFromSkillDir && !opts.global && !opts.status) {
   fail(
     `this installer was run from inside the skill folder, so there is no project to configure.\n\n` +
     `  resolved project root: ${projectRoot}\n\n` +
@@ -221,6 +225,7 @@ if (ranFromSkillDir && !opts.global) {
 
 const hasComponentsJson = existsSync(join(projectRoot, 'components.json'));
 
+if (!opts.status) {
 console.log(`atomic-design-shadcn installer`);
 console.log(`  node          ${process.versions.node}`);
 console.log(`  platform      ${process.platform}`);
@@ -230,6 +235,89 @@ console.log(`  scope         ${opts.global ? 'global (user)' : 'project'}`);
 console.log(`  agents        ${opts.agents.join(', ')}`);
 console.log(`  mcp clients   ${opts.clients.join(', ')}`);
 if (opts.dryRun) console.log(`  MODE          dry run — nothing will be written`);
+}
+
+// --- status -----------------------------------------------------------------
+
+/** Read the current state of all four dependencies. Writes nothing. */
+function checkStatus(root) {
+  const next = detectNextJs(root);
+  const componentsJson = existsSync(join(root, 'components.json'));
+
+  let mcp = false;
+  const mcpFile = join(root, '.mcp.json');
+  if (existsSync(mcpFile)) {
+    try {
+      mcp = Boolean(JSON.parse(readFileSync(mcpFile, 'utf8'))?.mcpServers?.[MCP_SERVER_NAME]);
+    } catch { /* unreadable counts as not set up */ }
+  }
+
+  let settings = false;
+  for (const f of [join(root, '.claude', 'settings.local.json'), join(homedir(), '.claude', 'settings.json')]) {
+    if (!existsSync(f)) continue;
+    try {
+      const s = JSON.parse(readFileSync(f, 'utf8'));
+      const enabled = s.enableAllProjectMcpServers === true
+        || (Array.isArray(s.enabledMcpjsonServers) && s.enabledMcpjsonServers.includes(MCP_SERVER_NAME));
+      const allowed = Array.isArray(s.permissions?.allow)
+        && s.permissions.allow.some((a) => a === 'mcp__shadcn' || a.startsWith('mcp__shadcn__'));
+      if (enabled && allowed) { settings = true; break; }
+    } catch { /* unreadable counts as not set up */ }
+  }
+
+  const skills = [
+    join(root, '.claude', 'skills', 'shadcn'),
+    join(root, '.agents', 'skills', 'shadcn'),
+    join(homedir(), '.claude', 'skills', 'shadcn'),
+  ].some((d) => existsSync(d));
+
+  return { next, componentsJson, mcp, settings, skills };
+}
+
+/** Show the state in one block, then one clear next action. */
+function printStatus(root, st) {
+  const yn = (b) => (b ? 'yes' : 'no');
+  const installCmd = `node "${join(SKILL_DIR, 'scripts', 'install.mjs')}" --project-root "${root}"`;
+
+  console.log('');
+  console.log(`  App folder: ${root}`);
+  console.log(
+    `  Your setup: Next.js app ${yn(st.next.isNext)} · components.json ${yn(st.componentsJson)}` +
+    ` · MCP server ${yn(st.mcp)} · settings ${yn(st.settings)} · shadcn skills ${yn(st.skills)}`
+  );
+
+  if (!st.next.isNext) {
+    console.log(`  Not ready - this folder is not a Next.js app.`);
+    console.log(`  Next: go to your Next.js app. Then run the installer again.`);
+    return;
+  }
+
+  const missing = [];
+  if (!st.componentsJson) missing.push('components.json');
+  if (!st.mcp) missing.push('the MCP server');
+  if (!st.settings) missing.push('the settings');
+  if (!st.skills) missing.push('the shadcn skills');
+
+  if (missing.length === 0) {
+    console.log(`  Ready - all parts are installed.`);
+    console.log(`  Next: restart your client. Then type /mcp to see "shadcn".`);
+    return;
+  }
+
+  const list = missing.length === 1
+    ? missing[0]
+    : `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`;
+  console.log(`  Not ready - ${list} ${missing.length === 1 ? 'is' : 'are'} missing.`);
+  console.log(`  Next: ${installCmd}`);
+}
+
+if (opts.status) {
+  console.log(`
+atomic-design-shadcn`);
+  printStatus(projectRoot, checkStatus(projectRoot));
+  console.log('');
+  process.exit(0);
+}
 
 // --- step 0: make sure the target is a real project ------------------------
 
@@ -457,12 +545,12 @@ if (warnings.length) {
   console.log(`\n    ${warnings.length} warning(s) above need your attention.`);
 }
 
-console.log(`
-Next:
-  1. Restart your client — MCP servers are read at startup.
-  2. Run /mcp in Claude Code and confirm "${MCP_SERVER_NAME}" is connected.
-  3. Run: npx skills list
-  4. Full process, verification checklist and troubleshooting: INSTALL.md
-`);
+if (!opts.dryRun && !skipProjectChecks) {
+  printStatus(projectRoot, checkStatus(projectRoot));
+}
+
+console.log('');
+console.log('  More help: INSTALL.md');
+console.log('');
 
 process.exit(0);

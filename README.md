@@ -146,11 +146,17 @@ Full process, per-OS paths, verification checklist and troubleshooting live in
 ### Automated
 
 ```bash
-npx skills add anodeaGr/atomic-design-shadcn -a claude-code -g -y
-node ~/.claude/skills/atomic-design-shadcn/scripts/install.mjs
+npx skills add anodeaGr/atomic-design-shadcn
 ```
 
-On Windows, add `--copy` to the first command if symlink creation is blocked.
+The CLI will ask which agents to install for and whether to install globally or into the
+current project. Then run the dependency installer:
+
+```bash
+node scripts/install.mjs
+```
+
+On Windows, add `--copy` to the `skills add` command if symlink creation is blocked.
 
 ### Or ask the agent
 

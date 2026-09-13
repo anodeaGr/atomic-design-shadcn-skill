@@ -186,14 +186,21 @@ Verify with `npx skills list`.
 Same mechanism, pointed at this repository:
 
 ```bash
-# project scope
+npx skills add anodeaGr/atomic-design-shadcn
+```
+
+The CLI prompts for the agents to install to and for project vs global scope. To answer those
+up front instead — useful in CI or a setup script:
+
+```bash
+# project scope, Claude Code
 npx skills add anodeaGr/atomic-design-shadcn -a claude-code -y
 
 # global
 npx skills add anodeaGr/atomic-design-shadcn -a claude-code -g -y
 
 # Windows, if symlinking fails
-npx skills add anodeaGr/atomic-design-shadcn -a claude-code -g -y --copy
+npx skills add anodeaGr/atomic-design-shadcn --copy
 ```
 
 Manual equivalent — copy the whole folder, keeping `SKILL.md`, `REFERENCE.md`, `EXAMPLES.md`

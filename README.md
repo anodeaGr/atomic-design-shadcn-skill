@@ -140,86 +140,43 @@ A real rule id is required. `all` is refused. Every use must be justified in cha
 
 ## Install
 
-Full process, per-OS paths, verification checklist and troubleshooting live in
-**[INSTALL.md](INSTALL.md)**. The short version:
+Two steps.
 
-### Automated
-
-**Step 1 — install the skill.** From your project directory:
+### 1. Install the skill
 
 ```bash
 npx skills add anodeaGr/atomic-design-shadcn
 ```
 
-The CLI asks which agents to install for and whether to install into this project or
-user-wide. On Windows add `--copy` if symlink creation is blocked.
+On Windows, add `--copy` if symlink creation is blocked.
 
-**Step 2 — install the dependencies.** Run the bundled installer **from the project you want
-configured**, giving the full path to the script. Where that script lives depends on the scope
-you picked in step 1:
+### 2. Let the agent finish the setup
 
-| Scope chosen | Path to `install.mjs` |
-|---|---|
-| Project | `.claude/skills/atomic-design-shadcn/scripts/install.mjs` |
-| Global — macOS/Linux | `~/.claude/skills/atomic-design-shadcn/scripts/install.mjs` |
-| Global — Windows | `$env:USERPROFILE\.claude\skills\atomic-design-shadcn\scripts\install.mjs` |
-
-```bash
-# project-scoped install, from your project root
-node .claude/skills/atomic-design-shadcn/scripts/install.mjs
-
-# global install — macOS / Linux
-node ~/.claude/skills/atomic-design-shadcn/scripts/install.mjs
-
-# global install — Windows PowerShell
-node "$env:USERPROFILE\.claude\skills\atomic-design-shadcn\scripts\install.mjs"
-
-# global install — Windows cmd
-node "%USERPROFILE%\.claude\skills\atomic-design-shadcn\scripts\install.mjs"
+```
+/atomic-design-shadcn --install
 ```
 
-> **`~` does not expand in PowerShell or cmd.** Using it there produces
-> `Cannot find module 'C:\your\cwd\~\.claude\...'`. Use `$env:USERPROFILE` or
-> `%USERPROFILE%` on Windows.
+That is the whole install. The agent works out where the skill landed and which scope you are
+in, then sets up all three dependencies and reports the result:
 
-The installer configures whichever directory you run it **from**, not where the script lives.
-If you'd rather not `cd`, name the target explicitly:
-
-```bash
-node <path-to>/install.mjs --project-root /path/to/your-project
-```
-
-### Or skip all of that
-
-Once the skill is installed, just say **`--install`** to the agent — it resolves the paths and
-runs the process for you.
-
-### What the installer sets up
-
-The skill has three dependencies and is not functional without all of them:
-
-| # | Dependency | Why |
+| # | Dependency | Why it is needed |
 |---|---|---|
 | 1 | **shadcn MCP server** | the registry-search workflow calls `mcp__shadcn__*` |
 | 2 | **MCP server allow-listed in settings** | otherwise every lookup raises a permission prompt |
 | 3 | **shadcn/ui skills** | the component knowledge these architecture rules sit on |
 
-`scripts/install.mjs` registers the MCP server for each client you name, merges the allow-list
-into the right settings file, and installs the shadcn/ui skills. It **merges** into existing
-config rather than overwriting, and is idempotent — re-running repairs a partial install.
+Works at any scope — project, user or global — and is safe to re-run: it merges into existing
+config instead of overwriting, so running it again repairs a partial install.
 
-```bash
-node scripts/install.mjs --dry-run                 # preview, writes nothing
-node scripts/install.mjs -g -a claude-code -a codex # user-wide, two agents
-node scripts/install.mjs --client vscode --copy     # more MCP clients, no symlinks
-node scripts/install.mjs --help
-```
+Afterwards, **restart your client** — MCP servers are only read at startup.
 
 ### Requirements
 
 - Node.js 18+
 - A project with `components.json` (`npx shadcn@latest init -d` if missing)
-- Restart your client afterwards — MCP servers are read at startup
+
+Doing it by hand instead, or something went wrong? Full process, per-OS paths, verification
+checklist and troubleshooting: **[INSTALL.md](INSTALL.md)**.
 
 ---
 

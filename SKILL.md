@@ -10,34 +10,81 @@ One-way layers, `components/ui/` (layer 0) as the substrate. This holds at any c
 
 ## `--install` mode
 
-If the user's message contains `--install` (or asks to install/set up this skill or its
-dependencies), do **only** this and then stop — do not write UI code in the same turn.
+Trigger: the user's message contains `--install`, or asks to install or set up this skill or
+its dependencies. Do **only** this, then stop — no UI code in the same turn.
 
-1. Read [INSTALL.md](INSTALL.md). It is the authoritative process; follow it step by step.
-2. Run the installer **from the project being configured**, calling the script by its absolute
-   path — it configures the working directory, not the directory it lives in:
-   ```bash
-   cd <project-root>
-   node <absolute-path-to-this-skill>/scripts/install.mjs
-   ```
-   Resolve `<absolute-path-to-this-skill>` yourself; it is `.claude/skills/atomic-design-shadcn`
-   under the project for a project-scoped install, or under the user's home for a global one.
-   Never emit a bare `~` in a command on Windows — PowerShell and cmd do not expand it. Use
-   `$env:USERPROFILE` or `%USERPROFILE%`, or just pass an absolute path.
-
-   Pass `--dry-run` first if the user wants to preview. Useful flags: `--project-root <dir>`
-   (configure a project without `cd`), `-g` (user-wide settings instead of a project),
-   `-a codex -a cursor` (more agents), `--client vscode` (more MCP clients), `--copy`
-   (Windows, when symlinks are blocked).
-3. Walk the five checks in INSTALL.md §5 and report each as pass or fail.
-4. Tell the user to restart their client — MCP servers are only read at startup.
-
-`--install` is an **agent input convention**, not a shell command: read it from the message,
+`--install` is an **agent input convention**, not a shell command. Read it from the message;
 never execute the literal text.
 
-The three dependencies it resolves — the shadcn MCP server, its settings allow-list, and the
-shadcn/ui skills — are all required. Workflow step 2 below cannot run without them. If a
-`mcp__shadcn__*` call fails at any point, stop and run `--install` before continuing.
+Follow these four steps exactly.
+
+### 1. Find this skill's directory
+
+You are reading `SKILL.md`. `<SKILL_DIR>` is the absolute path of the folder containing it.
+You already know it — use it verbatim. Do not guess and do not search for it.
+
+**Never emit a bare `~` in a command.** PowerShell and cmd do not expand it, and the command
+fails with `Cannot find module 'C:\<cwd>\~\.claude\...'`. Always pass an absolute path.
+
+### 2. Find the project to configure, and pick the scope
+
+The installer configures the directory it is **run from**, not the one it lives in. Work out
+the target in this order:
+
+| Situation | What to do |
+|---|---|
+| The user named a project or is working in one | that project root is the target |
+| The cwd is inside a project (a `package.json` above it) | that project root is the target |
+| The user asked for user-wide / global setup | no project — use `--global` |
+| No project anywhere and none requested | ask which project to configure; do not guess |
+
+Scope is independent of where the skill itself was installed. A globally-installed skill still
+configures a specific project; `--global` only means "write user-level settings instead".
+
+### 3. Run the installer
+
+Always quote both paths. Preferred form, which works from anywhere:
+
+```bash
+node "<SKILL_DIR>/scripts/install.mjs" --project-root "<project-root>"
+```
+
+Equivalent, if you are already in the project:
+
+```bash
+node "<SKILL_DIR>/scripts/install.mjs"
+```
+
+User-wide settings, no project:
+
+```bash
+node "<SKILL_DIR>/scripts/install.mjs" --global
+```
+
+Add `--dry-run` first if the user wants a preview. Other flags: `-a codex -a cursor` (more
+agents), `--client vscode` (more MCP clients), `--copy` (Windows, when symlinks are blocked),
+`--no-init` (do not create `components.json`).
+
+The installer is idempotent and merges into existing config, so re-running is always safe.
+
+**It will refuse, with the correct paths in the message, if** you run it from inside the skill
+folder, or point it at a directory with no `package.json`. Both mean the target is wrong —
+re-read step 2 rather than forcing past it.
+
+If `components.json` is missing it runs `npx shadcn@latest init -d` for you. That is required:
+the shadcn MCP server starts and immediately exits without one.
+
+### 4. Verify and report
+
+Walk the five checks in [INSTALL.md](INSTALL.md) §5 and report each as pass or fail. Then tell
+the user to **restart their client** — MCP servers are only read at startup, so checks 2 and 3
+cannot pass in the current session. That is expected, not a failure.
+
+---
+
+The three dependencies this resolves — the shadcn MCP server, its settings allow-list, and the
+shadcn/ui skills — are all required. Workflow step 2 below cannot run without them. If any
+`mcp__shadcn__*` call fails later, stop and run `--install` before continuing.
 
 ## The layer model
 

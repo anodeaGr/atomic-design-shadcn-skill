@@ -17,11 +17,14 @@ The skill has **three dependencies**. It is not functional without all three:
 ## 0. Prerequisites
 
 - **Node.js 18+** (`node --version`). `npx` ships with it.
-- **A target project** containing `components.json`. If it is missing:
+- **A real React/Next.js project** — a directory with a `package.json`. The shadcn MCP server
+  only runs inside one; pointed at an empty folder it starts and immediately exits. The
+  installer checks this first and stops with instructions rather than half-configuring.
+- **`components.json` in that project.** If it is missing, `scripts/install.mjs` runs
+  `npx shadcn@latest init -d` for you (disable with `--no-init`). To do it by hand:
   ```bash
   npx shadcn@latest init -d
   ```
-  The MCP server refuses to start without a valid `components.json` in the project root.
 - Any of `npx` / `pnpm dlx` / `yarn dlx` / `bunx` works. This document uses `npx`; substitute freely.
 
 Platform note: every command below is identical on **Windows, macOS and Linux**. The only
@@ -292,6 +295,9 @@ Never use that flag as a quality gate — see SKILL.md workflow step 4.
 | Codex does not see the server | `mcp init` does not write Codex config | hand-edit `~/.codex/config.toml` per step 1 |
 | `Cannot find module 'C:\...\~\.claude\skills\...'` | `~` is not expanded by PowerShell or cmd | use `$env:USERPROFILE` (PowerShell) or `%USERPROFILE%` (cmd) — see step 4 |
 | `Install aborted: ... run from inside the skill folder` | you `cd`'d into the skill instead of your project | `cd` to the project first, or pass `--project-root <dir>`, or use `--global` |
+| `Install aborted: ... is not a JavaScript project` | the target has no `package.json` | point the installer at your React/Next.js app, or create one with `npx create-next-app@latest` |
+| `shadcn init did not produce a components.json` | the project is not a framework shadcn recognises | run `npx shadcn@latest init` manually and answer its prompts, then re-run the installer |
+| `/mcp` still empty after a restart, in a project with no `components.json` | the server exits at startup without one | create it, then restart again |
 
 ---
 

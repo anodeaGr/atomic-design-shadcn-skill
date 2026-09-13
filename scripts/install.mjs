@@ -55,6 +55,7 @@ Options
                         symlink creation is blocked)
       --project-root    Project root to configure. Default: nearest ancestor with
                         components.json, else the current directory
+      --no-init         Do not run \`shadcn init\` when components.json is missing
       --skip-mcp        Skip step 1
       --skip-settings   Skip step 2
       --skip-skills     Skip step 3
@@ -92,6 +93,7 @@ const opts = {
   skipMcp: argv.includes('--skip-mcp'),
   skipSettings: argv.includes('--skip-settings'),
   skipSkills: argv.includes('--skip-skills'),
+  noInit: argv.includes('--no-init'),
   agents: takeAll(['-a', '--agent']),
   clients: takeAll(['-c', '--client']),
   projectRoot: takeOne(['--project-root']),
@@ -143,12 +145,20 @@ function mergeInto(arr, values) {
   return added;
 }
 
+/**
+ * Nearest ancestor that looks like the project to configure.
+ * components.json wins — it marks an already-initialised shadcn project. Otherwise
+ * fall back to the nearest package.json, so a project that has not run
+ * `shadcn init` yet is still found rather than silently configuring the cwd.
+ */
 function findProjectRoot(start) {
   let dir = resolve(start);
+  let pkgFallback = null;
   for (;;) {
     if (existsSync(join(dir, 'components.json'))) return dir;
+    if (!pkgFallback && existsSync(join(dir, 'package.json'))) pkgFallback = dir;
     const parent = dirname(dir);
-    if (parent === dir) return null;
+    if (parent === dir) return pkgFallback;
     dir = parent;
   }
 }
@@ -221,8 +231,50 @@ console.log(`  agents        ${opts.agents.join(', ')}`);
 console.log(`  mcp clients   ${opts.clients.join(', ')}`);
 if (opts.dryRun) console.log(`  MODE          dry run — nothing will be written`);
 
-if (!hasComponentsJson && !(opts.global && ranFromSkillDir)) {
-  warn(`no components.json at ${projectRoot} — the shadcn MCP server will not start until you run: npx shadcn@latest init -d`);
+// --- step 0: make sure the target is a real project ------------------------
+
+const hasPackageJson = existsSync(join(projectRoot, 'package.json'));
+const skipProjectChecks = opts.global && ranFromSkillDir;
+
+if (!skipProjectChecks) {
+  step(0, 'Check the target project');
+
+  if (!hasPackageJson) {
+    fail(
+      `${projectRoot} is not a JavaScript project — no package.json.\n\n` +
+      `The shadcn MCP server only runs inside a React/Next.js project, so there is\n` +
+      `nothing here for it to attach to. Point the installer at your app instead:\n\n` +
+      `  cd /path/to/your-react-or-next-app\n` +
+      `  node "${join(SKILL_DIR, 'scripts', 'install.mjs')}"\n\n` +
+      `or from anywhere:\n\n` +
+      `  node "${join(SKILL_DIR, 'scripts', 'install.mjs')}" --project-root /path/to/your-app\n\n` +
+      `Don't have one yet? Create it first, for example:\n` +
+      `  npx create-next-app@latest my-app\n\n` +
+      `To configure user-wide settings only, with no project, use --global.`
+    );
+  }
+  ok(`package.json found`);
+
+  if (hasComponentsJson) {
+    ok(`components.json found`);
+  } else if (opts.noInit) {
+    warn(`no components.json — the shadcn MCP server will not start. Run: npx shadcn@latest init -d`);
+  } else {
+    console.log(`    ...      no components.json — running shadcn init (skip with --no-init)`);
+    const initRes = run('npx', ['shadcn@latest', 'init', '-d'], projectRoot);
+    if (initRes.dryRun) {
+      changes.push('shadcn init (creates components.json)');
+    } else if (initRes.status !== 0 || !existsSync(join(projectRoot, 'components.json'))) {
+      warn(
+        `shadcn init did not produce a components.json (exit ${initRes.status}). ` +
+        `The MCP server will not start until it exists — run \`npx shadcn@latest init\` ` +
+        `manually and answer its prompts, then re-run this installer.`
+      );
+    } else {
+      ok(`components.json created`);
+      changes.push(`components.json in ${projectRoot}`);
+    }
+  }
 }
 
 // --- step 1: MCP server -----------------------------------------------------

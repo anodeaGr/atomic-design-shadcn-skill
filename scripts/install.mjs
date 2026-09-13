@@ -234,26 +234,60 @@ if (opts.dryRun) console.log(`  MODE          dry run — nothing will be writte
 // --- step 0: make sure the target is a real project ------------------------
 
 const hasPackageJson = existsSync(join(projectRoot, 'package.json'));
+
+/**
+ * This skill targets Next.js. A project is a Next.js app if it depends on `next`,
+ * or if it has a next.config file. Anything else is out of scope, so the install
+ * stops rather than writing config that can never work.
+ */
+function detectNextJs(root) {
+  const configs = ['next.config.js', 'next.config.mjs', 'next.config.ts', 'next.config.cjs'];
+  const config = configs.find((f) => existsSync(join(root, f)));
+  if (config) return { isNext: true, evidence: config };
+
+  const pkgPath = join(root, 'package.json');
+  if (!existsSync(pkgPath)) return { isNext: false, evidence: null };
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  } catch {
+    return { isNext: false, evidence: null };
+  }
+  const version = pkg.dependencies?.next ?? pkg.devDependencies?.next;
+  if (version) return { isNext: true, evidence: `next@${version} in package.json` };
+
+  return { isNext: false, evidence: null };
+}
 const skipProjectChecks = opts.global && ranFromSkillDir;
 
 if (!skipProjectChecks) {
   step(0, 'Check the target project');
 
-  if (!hasPackageJson) {
+  const next = detectNextJs(projectRoot);
+
+  if (!next.isNext) {
+    const reason = hasPackageJson
+      ? 'This project does not use Next.js.'
+      : 'This folder has no package.json.';
+
     fail(
-      `${projectRoot} is not a JavaScript project — no package.json.\n\n` +
-      `The shadcn MCP server only runs inside a React/Next.js project, so there is\n` +
-      `nothing here for it to attach to. Point the installer at your app instead:\n\n` +
-      `  cd /path/to/your-react-or-next-app\n` +
-      `  node "${join(SKILL_DIR, 'scripts', 'install.mjs')}"\n\n` +
-      `or from anywhere:\n\n` +
-      `  node "${join(SKILL_DIR, 'scripts', 'install.mjs')}" --project-root /path/to/your-app\n\n` +
-      `Don't have one yet? Create it first, for example:\n` +
-      `  npx create-next-app@latest my-app\n\n` +
-      `To configure user-wide settings only, with no project, use --global.`
+      `this skill needs a Next.js app. ${reason}\n\n` +
+      `  Folder checked:  ${projectRoot}\n\n` +
+      `The installer looked for one of these, and found none:\n` +
+      `  - next.config.js, next.config.mjs, next.config.ts, or next.config.cjs\n` +
+      `  - "next" in dependencies or devDependencies in package.json\n\n` +
+      `Do one of these:\n\n` +
+      `  1. Go to your Next.js app. Then run the installer:\n` +
+      `       cd /path/to/your-next-app\n` +
+      `       node "${join(SKILL_DIR, 'scripts', 'install.mjs')}"\n\n` +
+      `  2. Or give the path to your Next.js app:\n` +
+      `       node "${join(SKILL_DIR, 'scripts', 'install.mjs')}" --project-root /path/to/your-next-app\n\n` +
+      `  3. Or make a new Next.js app first:\n` +
+      `       npx create-next-app@latest my-app\n\n` +
+      `To write user settings only, with no app, add --global.`
     );
   }
-  ok(`package.json found`);
+  ok(`Next.js app found (${next.evidence})`);
 
   if (hasComponentsJson) {
     ok(`components.json found`);

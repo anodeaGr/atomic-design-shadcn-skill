@@ -31,12 +31,16 @@ fails with `Cannot find module 'C:\<cwd>\~\.claude\...'`. Always pass an absolut
 The installer configures the directory it is **run from**, not the one it lives in. Work out
 the target in this order:
 
+**This skill needs a Next.js app.** A folder is a Next.js app if it has a `next.config.*` file,
+or `next` in `dependencies` or `devDependencies`. Check this first. If the folder is not a
+Next.js app, stop. Tell the user, and ask for the path to their Next.js app.
+
 | Situation | What to do |
 |---|---|
-| The user named a project or is working in one | that project root is the target |
-| The cwd is inside a project (a `package.json` above it) | that project root is the target |
-| The user asked for user-wide / global setup | no project — use `--global` |
-| No project anywhere and none requested | ask which project to configure; do not guess |
+| The user named a Next.js app, or works in one | use that app folder |
+| The cwd is inside a Next.js app | use that app folder |
+| The user asked for user-wide setup | use `--global`, with no app |
+| There is no Next.js app | stop. Ask the user for the path to their app |
 
 Scope is independent of where the skill itself was installed. A globally-installed skill still
 configures a specific project; `--global` only means "write user-level settings instead".
@@ -67,9 +71,12 @@ agents), `--client vscode` (more MCP clients), `--copy` (Windows, when symlinks 
 
 The installer is idempotent and merges into existing config, so re-running is always safe.
 
-**It will refuse, with the correct paths in the message, if** you run it from inside the skill
-folder, or point it at a directory with no `package.json`. Both mean the target is wrong —
-re-read step 2 rather than forcing past it.
+The installer stops, and shows the correct paths, if:
+
+- you run it from inside the skill folder, or
+- the folder is not a Next.js app.
+
+Both mean the target folder is wrong. Go back to step 2. Do not try to force past it.
 
 If `components.json` is missing it runs `npx shadcn@latest init -d` for you. That is required:
 the shadcn MCP server starts and immediately exits without one.

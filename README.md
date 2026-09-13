@@ -172,8 +172,16 @@ Afterwards, **restart your client** — MCP servers are only read at startup.
 
 ### Requirements
 
-- Node.js 18+
-- A project with `components.json` (`npx shadcn@latest init -d` if missing)
+- A Next.js app. The install stops if the folder is not a Next.js app.
+- Node.js 18 or later.
+
+No app yet? Make one first:
+
+```bash
+npx create-next-app@latest my-app
+```
+
+You do not need `components.json`. The installer creates it if it is missing.
 
 Doing it by hand instead, or something went wrong? Full process, per-OS paths, verification
 checklist and troubleshooting: **[INSTALL.md](INSTALL.md)**.

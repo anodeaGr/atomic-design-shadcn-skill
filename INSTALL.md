@@ -46,7 +46,7 @@ cd my-app
 Type this command:
 
 ```bash
-npx skills add anodeaGr/atomic-design-shadcn
+npx skills add anodeaGr/atomic-design-shadcn-skill
 ```
 
 The tool asks two questions:
@@ -57,7 +57,7 @@ The tool asks two questions:
 On Windows, the tool can show a symlink error. If this occurs, add `--copy`:
 
 ```bash
-npx skills add anodeaGr/atomic-design-shadcn --copy
+npx skills add anodeaGr/atomic-design-shadcn-skill --copy
 ```
 
 ---

@@ -167,7 +167,7 @@ makes that file for you.
 Go to your Next.js app. Then type this command:
 
 ```bash
-npx skills add anodeaGr/atomic-design-shadcn
+npx skills add anodeaGr/atomic-design-shadcn-skill
 ```
 
 On Windows, add `--copy` if you see a symlink error.
@@ -222,6 +222,12 @@ For a manual install, for other tools, or if there is a problem, see **[INSTALL.
 | `INSTALL.md` | the install process, verification and troubleshooting |
 | `scripts/validate-atomic.mjs` | the validator |
 | `scripts/install.mjs` | the dependency installer |
+
+---
+
+## Author
+
+**Kostas Ordoumpozanis** — Founder, [Anodea](https://anodea.gr)
 
 ---
 

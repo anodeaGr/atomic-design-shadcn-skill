@@ -213,6 +213,54 @@ and `scripts/` together:
 
 For Cowork, zip this folder and upload it as described in step 3.
 
+### Locating `scripts/install.mjs` afterwards
+
+`<skill-dir>` below means wherever step 4 put the skill. It depends on the scope you chose:
+
+| Scope | `<skill-dir>` |
+|---|---|
+| Project | `<project>/.claude/skills/atomic-design-shadcn` |
+| Global — macOS / Linux | `~/.claude/skills/atomic-design-shadcn` |
+| Global — Windows | `%USERPROFILE%\.claude\skills\atomic-design-shadcn` |
+
+**The installer configures the directory you run it *from*, not the directory it lives in.**
+So `cd` to the project you want set up, then call the script by its full path:
+
+```bash
+# project-scoped skill, from the project root
+node .claude/skills/atomic-design-shadcn/scripts/install.mjs
+
+# globally-installed skill — macOS / Linux
+node ~/.claude/skills/atomic-design-shadcn/scripts/install.mjs
+
+# globally-installed skill — Windows PowerShell
+node "$env:USERPROFILE\.claude\skills\atomic-design-shadcn\scripts\install.mjs"
+
+# globally-installed skill — Windows cmd
+node "%USERPROFILE%\.claude\skills\atomic-design-shadcn\scripts\install.mjs"
+```
+
+> **`~` is not expanded by PowerShell or cmd.** Writing `node ~/.claude/skills/...` on Windows
+> fails with `Cannot find module 'C:\your\cwd\~\.claude\...'`. Use `$env:USERPROFILE` or
+> `%USERPROFILE%` instead.
+
+If you would rather not `cd`, name the project explicitly — this works from anywhere:
+
+```bash
+node <skill-dir>/scripts/install.mjs --project-root /path/to/your-project
+```
+
+Running the installer from inside the skill folder is refused with a message containing the
+correct absolute paths, because there is no project there to configure.
+
+To configure user-wide settings rather than a single project, use `--global`. Note that
+`.mcp.json` is inherently per-project and has no global form — with `--global` and no project,
+the installer tells you to register the server at user scope instead:
+
+```bash
+claude mcp add shadcn --scope user -- npx shadcn@latest mcp
+```
+
 ---
 
 ## 5. Verify
@@ -225,7 +273,7 @@ Run all five. The install is complete only when every one passes.
 | 2 | `/mcp` in Claude Code | `shadcn` listed as **connected** |
 | 3 | Ask the agent to search the registry for `button` | returns results, no permission prompt |
 | 4 | `npx skills list` | lists `shadcn`, `migrate-radix-to-base` and `atomic-design-shadcn` |
-| 5 | `node ~/.claude/skills/atomic-design-shadcn/scripts/validate-atomic.mjs . --warn-only` | runs and reports; exits 0 |
+| 5 | `node <skill-dir>/scripts/validate-atomic.mjs . --warn-only` | runs and reports; exits 0 |
 
 Check 5 uses `--warn-only` deliberately: here it is a smoke test that the validator executes.
 Never use that flag as a quality gate — see SKILL.md workflow step 4.
@@ -242,6 +290,8 @@ Never use that flag as a quality gate — see SKILL.md workflow step 4.
 | `EPERM` / `operation not permitted` during `skills add` on Windows | symlink creation blocked | re-run with `--copy`, or enable Developer Mode |
 | Skill not picked up after install | wrong agent directory | run `npx skills list` and confirm the path matches the table in step 3 |
 | Codex does not see the server | `mcp init` does not write Codex config | hand-edit `~/.codex/config.toml` per step 1 |
+| `Cannot find module 'C:\...\~\.claude\skills\...'` | `~` is not expanded by PowerShell or cmd | use `$env:USERPROFILE` (PowerShell) or `%USERPROFILE%` (cmd) — see step 4 |
+| `Install aborted: ... run from inside the skill folder` | you `cd`'d into the skill instead of your project | `cd` to the project first, or pass `--project-root <dir>`, or use `--global` |
 
 ---
 

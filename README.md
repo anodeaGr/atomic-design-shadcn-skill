@@ -145,23 +145,54 @@ Full process, per-OS paths, verification checklist and troubleshooting live in
 
 ### Automated
 
+**Step 1 — install the skill.** From your project directory:
+
 ```bash
 npx skills add anodeaGr/atomic-design-shadcn
 ```
 
-The CLI will ask which agents to install for and whether to install globally or into the
-current project. Then run the dependency installer:
+The CLI asks which agents to install for and whether to install into this project or
+user-wide. On Windows add `--copy` if symlink creation is blocked.
+
+**Step 2 — install the dependencies.** Run the bundled installer **from the project you want
+configured**, giving the full path to the script. Where that script lives depends on the scope
+you picked in step 1:
+
+| Scope chosen | Path to `install.mjs` |
+|---|---|
+| Project | `.claude/skills/atomic-design-shadcn/scripts/install.mjs` |
+| Global — macOS/Linux | `~/.claude/skills/atomic-design-shadcn/scripts/install.mjs` |
+| Global — Windows | `$env:USERPROFILE\.claude\skills\atomic-design-shadcn\scripts\install.mjs` |
 
 ```bash
-node scripts/install.mjs
+# project-scoped install, from your project root
+node .claude/skills/atomic-design-shadcn/scripts/install.mjs
+
+# global install — macOS / Linux
+node ~/.claude/skills/atomic-design-shadcn/scripts/install.mjs
+
+# global install — Windows PowerShell
+node "$env:USERPROFILE\.claude\skills\atomic-design-shadcn\scripts\install.mjs"
+
+# global install — Windows cmd
+node "%USERPROFILE%\.claude\skills\atomic-design-shadcn\scripts\install.mjs"
 ```
 
-On Windows, add `--copy` to the `skills add` command if symlink creation is blocked.
+> **`~` does not expand in PowerShell or cmd.** Using it there produces
+> `Cannot find module 'C:\your\cwd\~\.claude\...'`. Use `$env:USERPROFILE` or
+> `%USERPROFILE%` on Windows.
 
-### Or ask the agent
+The installer configures whichever directory you run it **from**, not where the script lives.
+If you'd rather not `cd`, name the target explicitly:
 
-Once the skill is installed, say **`--install`** and it will run the process and report on each
-verification check.
+```bash
+node <path-to>/install.mjs --project-root /path/to/your-project
+```
+
+### Or skip all of that
+
+Once the skill is installed, just say **`--install`** to the agent — it resolves the paths and
+runs the process for you.
 
 ### What the installer sets up
 

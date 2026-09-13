@@ -15,9 +15,13 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+
+/** Where this skill is installed — works for both project and global scope. */
+const SKILL_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const MCP_SERVER_NAME = 'shadcn';
 const MCP_COMMAND = 'npx';
@@ -168,22 +172,56 @@ function run(cmd, args, cwd) {
 const nodeMajor = Number(process.versions.node.split('.')[0]);
 if (nodeMajor < 18) fail(`Node 18+ required, found ${process.versions.node}.`);
 
-const projectRoot = opts.projectRoot
-  ? resolve(opts.projectRoot)
-  : (findProjectRoot(process.cwd()) ?? process.cwd());
+/**
+ * A path is a skill install directory if it sits under `<agent>/skills/`.
+ * Running the installer from there means the user cd'd into the skill instead of
+ * their project — configuring that folder would be useless, so it is never a
+ * valid project root.
+ */
+function isInsideSkillsDir(p) {
+  const norm = p.split(sep).join('/');
+  return /\/(\.claude|\.agents|\.cursor|\.codex)\/skills\//.test(norm + '/');
+}
+
+let projectRoot;
+if (opts.projectRoot) {
+  projectRoot = resolve(opts.projectRoot);
+} else {
+  const found = findProjectRoot(process.cwd());
+  projectRoot = found ?? process.cwd();
+}
+
+const ranFromSkillDir = isInsideSkillsDir(projectRoot);
+
+// Global scope configures ~/.claude only, so a bogus project root is harmless there.
+if (ranFromSkillDir && !opts.global) {
+  fail(
+    `this installer was run from inside the skill folder, so there is no project to configure.\n\n` +
+    `  resolved project root: ${projectRoot}\n\n` +
+    `Do one of the following instead:\n\n` +
+    `  1. cd into the project you want configured, then run the installer by path:\n` +
+    `       cd /path/to/your-project\n` +
+    `       node "${join(SKILL_DIR, 'scripts', 'install.mjs')}"\n\n` +
+    `  2. or name the project explicitly from anywhere:\n` +
+    `       node "${join(SKILL_DIR, 'scripts', 'install.mjs')}" --project-root /path/to/your-project\n\n` +
+    `  3. or install user-wide instead of per-project:\n` +
+    `       node "${join(SKILL_DIR, 'scripts', 'install.mjs')}" --global`
+  );
+}
 
 const hasComponentsJson = existsSync(join(projectRoot, 'components.json'));
 
 console.log(`atomic-design-shadcn installer`);
 console.log(`  node          ${process.versions.node}`);
 console.log(`  platform      ${process.platform}`);
-console.log(`  project root  ${projectRoot}`);
+console.log(`  skill dir     ${SKILL_DIR}`);
+console.log(`  project root  ${opts.global ? '(n/a — global scope)' : projectRoot}`);
 console.log(`  scope         ${opts.global ? 'global (user)' : 'project'}`);
 console.log(`  agents        ${opts.agents.join(', ')}`);
 console.log(`  mcp clients   ${opts.clients.join(', ')}`);
 if (opts.dryRun) console.log(`  MODE          dry run — nothing will be written`);
 
-if (!hasComponentsJson) {
+if (!hasComponentsJson && !(opts.global && ranFromSkillDir)) {
   warn(`no components.json at ${projectRoot} — the shadcn MCP server will not start until you run: npx shadcn@latest init -d`);
 }
 
@@ -194,7 +232,21 @@ if (opts.skipMcp) {
 } else {
   step(1, 'Register the shadcn MCP server');
 
+  // .mcp.json / .cursor/mcp.json / .vscode/mcp.json are per-project files; there is no
+  // global equivalent. With -g and no real project to point at, registration has to go
+  // through the CLI at user scope instead.
+  const noProjectForMcp = ranFromSkillDir || (opts.global && !opts.projectRoot && !hasComponentsJson);
+
   for (const client of opts.clients) {
+    if (noProjectForMcp && client !== 'codex') {
+      warn(
+        `${client}: no project to write an MCP config into (these are per-project files). ` +
+        `Register the server user-wide instead:\n` +
+        `                 claude mcp add shadcn --scope user -- npx shadcn@latest mcp\n` +
+        `             or re-run this installer from a project, or with --project-root <dir>.`
+      );
+      continue;
+    }
     if (client === 'claude' || client === 'cursor' || client === 'vscode') {
       const file = client === 'claude'
         ? join(projectRoot, '.mcp.json')
@@ -284,7 +336,10 @@ if (opts.skipSkills) {
   if (opts.global) args.push('-g');
   if (opts.copy) args.push('--copy');
 
-  const res = run('npx', args, projectRoot);
+  // Global installs must not run inside the skill folder, or the CLI drops a
+  // skills-lock.json there. Home is the correct working directory for -g.
+  const skillsCwd = opts.global ? homedir() : projectRoot;
+  const res = run('npx', args, skillsCwd);
   if (res.dryRun) {
     changes.push(`shadcn/ui skills for ${opts.agents.join(', ')}`);
   } else if (res.status !== 0) {
@@ -296,7 +351,7 @@ if (opts.skipSkills) {
     );
   } else {
     ok(`shadcn/ui skills installed for ${opts.agents.join(', ')}`);
-    changes.push(`shadcn/ui skills for ${opts.agents.join(', ')} (${opts.global ? 'global' : projectRoot})`);
+    changes.push(`shadcn/ui skills for ${opts.agents.join(', ')} (${opts.global ? 'global' : skillsCwd})`);
   }
 }
 

@@ -14,13 +14,21 @@ If the user's message contains `--install` (or asks to install/set up this skill
 dependencies), do **only** this and then stop — do not write UI code in the same turn.
 
 1. Read [INSTALL.md](INSTALL.md). It is the authoritative process; follow it step by step.
-2. Run the installer from this skill's directory:
+2. Run the installer **from the project being configured**, calling the script by its absolute
+   path — it configures the working directory, not the directory it lives in:
    ```bash
-   node scripts/install.mjs
+   cd <project-root>
+   node <absolute-path-to-this-skill>/scripts/install.mjs
    ```
-   Pass `--dry-run` first if the user wants to preview. Useful flags: `-g` (user-wide instead
-   of project), `-a codex -a cursor` (more agents), `--client vscode` (more MCP clients),
-   `--copy` (Windows, when symlinks are blocked).
+   Resolve `<absolute-path-to-this-skill>` yourself; it is `.claude/skills/atomic-design-shadcn`
+   under the project for a project-scoped install, or under the user's home for a global one.
+   Never emit a bare `~` in a command on Windows — PowerShell and cmd do not expand it. Use
+   `$env:USERPROFILE` or `%USERPROFILE%`, or just pass an absolute path.
+
+   Pass `--dry-run` first if the user wants to preview. Useful flags: `--project-root <dir>`
+   (configure a project without `cd`), `-g` (user-wide settings instead of a project),
+   `-a codex -a cursor` (more agents), `--client vscode` (more MCP clients), `--copy`
+   (Windows, when symlinks are blocked).
 3. Walk the five checks in INSTALL.md §5 and report each as pass or fail.
 4. Tell the user to restart their client — MCP servers are only read at startup.
 
